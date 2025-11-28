@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
-import '../theme.dart';
+import 'package:image_picker/image_picker.dart';
+
 import '../services/camera_service.dart';
 
 class CharacterCreationPage extends StatefulWidget {
@@ -17,29 +18,18 @@ class _CharacterCreationPageState extends State<CharacterCreationPage> {
 
   Future<void> _takePhoto() async {
     try {
-      // В реальном приложении здесь будет вызов CameraService
-      // Для демонстрации и тестирования используем заглушку
+      // Используем CameraService для получения фото с камеры
+      final CameraService cameraService = CameraService();
+      final XFile? photo = await cameraService.takePicture();
 
-      // Имитация работы CameraService
-      print('Имитация получения фото через CameraService...');
-
-      // В реальном приложении будет так:
-      // final CameraService cameraService = CameraService();
-      // final XFile? photo = await cameraService.takePicture();
-
-      // Для демонстрации просто используем заглушку
-      setState(() {
-        _isPhotoTaken = true;
-        _photoPath = 'assets/sample_character_photo.jpg'; // временный путь
-      });
-
-      // После успешного получения фото (в реальном коде):
-      // if (photo != null) {
-      //   setState(() {
-      //     _isPhotoTaken = true;
-      //     _photoPath = photo.path;
-      //   });
-      // }
+      if (photo != null) {
+        setState(() {
+          _isPhotoTaken = true;
+          _photoPath = photo.path;
+        });
+      } else {
+        print('Фото не было выбрано');
+      }
     } catch (e) {
       // Обработка ошибок
       print('Ошибка при получении фото: $e');
@@ -47,6 +37,30 @@ class _CharacterCreationPageState extends State<CharacterCreationPage> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Не удалось получить фото: $e')));
+    }
+  }
+
+  Future<void> _pickFromGallery() async {
+    try {
+      // Используем CameraService для выбора фото из галереи
+      final CameraService cameraService = CameraService();
+      final XFile? photo = await cameraService.pickFromGallery();
+
+      if (photo != null) {
+        setState(() {
+          _isPhotoTaken = true;
+          _photoPath = photo.path;
+        });
+      } else {
+        print('Фото не было выбрано');
+      }
+    } catch (e) {
+      // Обработка ошибок
+      print('Ошибка при выборе фото из галереи: $e');
+      // В случае ошибки показываем сообщение пользователю
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Не удалось выбрать фото из галереи: $e')),
+      );
     }
   }
 
@@ -153,9 +167,10 @@ class _CharacterCreationPageState extends State<CharacterCreationPage> {
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 10),
+              // Контейнер с квадратным соотношением сторон 1:1
               Container(
-                height: 200,
                 width: double.infinity,
+                height: 250, // Фиксированная высота для квадратного отображения
                 decoration: BoxDecoration(
                   border: Border.all(
                     color: Theme.of(context).colorScheme.secondary,
@@ -163,44 +178,87 @@ class _CharacterCreationPageState extends State<CharacterCreationPage> {
                   borderRadius: BorderRadius.circular(8.0),
                   color: Theme.of(context).colorScheme.surface,
                 ),
-                child:
-                    _isPhotoTaken
-                        ? Center(
-                          child:
-                              _photoPath != null
-                                  ? Image.file(
-                                    File(_photoPath!),
-                                    fit: BoxFit.cover,
-                                    width: double.infinity,
-                                    height: 200,
+                child: Stack(
+                  children: [
+                    // Основное изображение с квадратным форматом
+                    Center(
+                      child:
+                          _isPhotoTaken
+                              ? _photoPath != null
+                                  ? AspectRatio(
+                                    aspectRatio: 1.0, // 1:1 соотношение
+                                    child: Image.file(
+                                      File(_photoPath!),
+                                      fit: BoxFit.cover,
+                                    ),
                                   )
-                                  : const Text('Фото не доступно'),
-                        )
-                        : const Center(
-                          child: Icon(
-                            Icons.camera_alt,
-                            size: 50,
-                            color: Colors.grey,
+                                  : const Text('Фото не доступно')
+                              : const Icon(
+                                Icons.camera_alt,
+                                size: 50,
+                                color: Colors.grey,
+                              ),
+                    ),
+                    // Рамка на видоискатель (полупрозрачная)
+                    Align(
+                      alignment: Alignment.center,
+                      child: Container(
+                        width: 200, // Ширина рамки
+                        height: 200, // Высота рамки
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.7),
+                            width: 2,
                           ),
                         ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 30),
 
-              // Кнопка сделать фото
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: _takePhoto,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8.0),
+              // Кнопки сделать фото и выбрать из галереи
+              Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 50,
+                      child: ElevatedButton(
+                        onPressed: _takePhoto,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor:
+                              Theme.of(context).colorScheme.primary,
+                          foregroundColor:
+                              Theme.of(context).colorScheme.onPrimary,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8.0),
+                          ),
+                        ),
+                        child: const Text('Сделать фото'),
+                      ),
                     ),
                   ),
-                  child: const Text('Сделать фото'),
-                ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: SizedBox(
+                      height: 50,
+                      child: ElevatedButton(
+                        onPressed: _pickFromGallery,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor:
+                              Theme.of(context).colorScheme.secondary,
+                          foregroundColor:
+                              Theme.of(context).colorScheme.onSecondary,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8.0),
+                          ),
+                        ),
+                        child: const Text('Из галереи'),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

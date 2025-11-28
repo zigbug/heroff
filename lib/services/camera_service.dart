@@ -20,6 +20,21 @@ class CameraService {
     }
   }
 
+  /// Получение фото из галереи
+  Future<XFile?> pickFromGallery() async {
+    try {
+      final XFile? photo = await _picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 50, // Качество изображения
+      );
+      return photo;
+    } catch (e) {
+      // Логирование ошибки
+      print('Ошибка при выборе фото из галереи: $e');
+      return null;
+    }
+  }
+
   /// Выбор фото из галереи
   Future<XFile?> selectPictureFromGallery() async {
     try {
