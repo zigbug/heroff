@@ -1,68 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'dart:io';
-import 'package:image_picker/image_picker.dart';
-
+import '../theme.dart';
 import '../services/camera_service.dart';
+import '../blocs/character_creation/character_creation_bloc.dart';
+import '../blocs/character_creation/character_creation_state.dart';
+import '../blocs/character_creation/character_creation_event.dart';
 
-class CharacterCreationPage extends StatefulWidget {
+class CharacterCreationPage extends StatelessWidget {
   const CharacterCreationPage({super.key});
-
-  @override
-  State<CharacterCreationPage> createState() => _CharacterCreationPageState();
-}
-
-class _CharacterCreationPageState extends State<CharacterCreationPage> {
-  final TextEditingController _nameController = TextEditingController();
-  bool _isPhotoTaken = false;
-  String? _photoPath;
-
-  Future<void> _takePhoto() async {
-    try {
-      // Используем CameraService для получения фото с камеры
-      final CameraService cameraService = CameraService();
-      final XFile? photo = await cameraService.takePicture();
-
-      if (photo != null) {
-        setState(() {
-          _isPhotoTaken = true;
-          _photoPath = photo.path;
-        });
-      } else {
-        print('Фото не было выбрано');
-      }
-    } catch (e) {
-      // Обработка ошибок
-      print('Ошибка при получении фото: $e');
-      // В случае ошибки показываем сообщение пользователю
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Не удалось получить фото: $e')));
-    }
-  }
-
-  Future<void> _pickFromGallery() async {
-    try {
-      // Используем CameraService для выбора фото из галереи
-      final CameraService cameraService = CameraService();
-      final XFile? photo = await cameraService.pickFromGallery();
-
-      if (photo != null) {
-        setState(() {
-          _isPhotoTaken = true;
-          _photoPath = photo.path;
-        });
-      } else {
-        print('Фото не было выбрано');
-      }
-    } catch (e) {
-      // Обработка ошибок
-      print('Ошибка при выборе фото из галереи: $e');
-      // В случае ошибки показываем сообщение пользователю
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Не удалось выбрать фото из галереи: $e')),
-      );
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -147,15 +93,22 @@ class _CharacterCreationPageState extends State<CharacterCreationPage> {
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 10),
-              TextField(
-                controller: _nameController,
-                decoration: InputDecoration(
-                  hintText: 'Имя персонажа',
-                  filled: true,
-                  fillColor: Theme.of(context).colorScheme.surface,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8.0),
-                    borderSide: BorderSide.none,
+              Container(
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: Theme.of(context).colorScheme.secondary,
+                  ),
+                  borderRadius: BorderRadius.circular(8.0),
+                ),
+                child: TextField(
+                  decoration: InputDecoration(
+                    hintText: 'Имя персонажа',
+                    filled: true,
+                    fillColor: Theme.of(context).colorScheme.surface,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8.0),
+                      borderSide: BorderSide.none,
+                    ),
                   ),
                 ),
               ),
@@ -170,7 +123,7 @@ class _CharacterCreationPageState extends State<CharacterCreationPage> {
               // Контейнер с квадратным соотношением сторон 1:1
               Container(
                 width: double.infinity,
-                height: 250, // Фиксированная высота для квадратного отображения
+                height: 250,
                 decoration: BoxDecoration(
                   border: Border.all(
                     color: Theme.of(context).colorScheme.secondary,
@@ -178,43 +131,91 @@ class _CharacterCreationPageState extends State<CharacterCreationPage> {
                   borderRadius: BorderRadius.circular(8.0),
                   color: Theme.of(context).colorScheme.surface,
                 ),
-                child: Stack(
-                  children: [
-                    // Основное изображение с квадратным форматом
-                    Center(
-                      child:
-                          _isPhotoTaken
-                              ? _photoPath != null
-                                  ? AspectRatio(
-                                    aspectRatio: 1.0, // 1:1 соотношение
-                                    child: Image.file(
-                                      File(_photoPath!),
-                                      fit: BoxFit.cover,
-                                    ),
-                                  )
-                                  : const Text('Фото не доступно')
-                              : const Icon(
-                                Icons.camera_alt,
-                                size: 50,
-                                color: Colors.grey,
+                child:
+                    BlocBuilder<CharacterCreationBloc, CharacterCreationState>(
+                      builder: (context, state) {
+                        if (state is CharacterCreationLoading) {
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
+                        } else if (state is CharacterCreationSuccess) {
+                          return Stack(
+                            children: [
+                              // Основное изображение с квадратным форматом
+                              Center(
+                                child: AspectRatio(
+                                  aspectRatio: 1.0, // 1:1 соотношение
+                                  child: Image.file(
+                                    File(state.photoPath),
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
                               ),
+                              // Рамка на видоискатель (полупрозрачная)
+                              Align(
+                                alignment: Alignment.center,
+                                child: Container(
+                                  width: 200, // Ширина рамки
+                                  height: 200, // Высота рамки
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                      color: Colors.white.withOpacity(0.7),
+                                      width: 2,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        } else if (state is CharacterCreationFailure) {
+                          return Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(
+                                  Icons.error,
+                                  color: Colors.red,
+                                  size: 50,
+                                ),
+                                const SizedBox(height: 10),
+                                Text(
+                                  state.error,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(color: Colors.red),
+                                ),
+                              ],
+                            ),
+                          );
+                        } else {
+                          // CharacterCreationInitial
+                          return Stack(
+                            children: [
+                              const Center(
+                                child: Icon(
+                                  Icons.camera_alt,
+                                  size: 50,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                              // Рамка на видоискатель (полупрозрачная)
+                              Align(
+                                alignment: Alignment.center,
+                                child: Container(
+                                  width: 200, // Ширина рамки
+                                  height: 200, // Высота рамки
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                      color: Colors.white.withOpacity(0.7),
+                                      width: 2,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        }
+                      },
                     ),
-                    // Рамка на видоискатель (полупрозрачная)
-                    Align(
-                      alignment: Alignment.center,
-                      child: Container(
-                        width: 200, // Ширина рамки
-                        height: 200, // Высота рамки
-                        decoration: BoxDecoration(
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.7),
-                            width: 2,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
               ),
               const SizedBox(height: 30),
 
@@ -225,7 +226,11 @@ class _CharacterCreationPageState extends State<CharacterCreationPage> {
                     child: SizedBox(
                       height: 50,
                       child: ElevatedButton(
-                        onPressed: _takePhoto,
+                        onPressed: () {
+                          context.read<CharacterCreationBloc>().add(
+                            CharacterCreationTakePhoto(),
+                          );
+                        },
                         style: ElevatedButton.styleFrom(
                           backgroundColor:
                               Theme.of(context).colorScheme.primary,
@@ -244,7 +249,11 @@ class _CharacterCreationPageState extends State<CharacterCreationPage> {
                     child: SizedBox(
                       height: 50,
                       child: ElevatedButton(
-                        onPressed: _pickFromGallery,
+                        onPressed: () {
+                          context.read<CharacterCreationBloc>().add(
+                            CharacterCreationPickFromGallery(),
+                          );
+                        },
                         style: ElevatedButton.styleFrom(
                           backgroundColor:
                               Theme.of(context).colorScheme.secondary,
@@ -259,6 +268,43 @@ class _CharacterCreationPageState extends State<CharacterCreationPage> {
                     ),
                   ),
                 ],
+              ),
+
+              // Кнопка "Далее" - появляется при заполнении имени и фото
+              const SizedBox(height: 20),
+              BlocBuilder<CharacterCreationBloc, CharacterCreationState>(
+                builder: (context, state) {
+                  // Временная проверка - в реальном приложении нужно передавать имя из TextField
+                  bool isNameFilled =
+                      true; // Это будет зависеть от значения в TextField
+                  bool isPhotoTaken = state is CharacterCreationSuccess;
+
+                  if (isNameFilled && isPhotoTaken) {
+                    return SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          // Переход на следующий шаг (выбор расы)
+                          // В реальном приложении здесь будет переход к следующему экрану
+                          Navigator.pushNamed(context, '/race-selection');
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor:
+                              Theme.of(context).colorScheme.primary,
+                          foregroundColor:
+                              Theme.of(context).colorScheme.onPrimary,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8.0),
+                          ),
+                        ),
+                        child: const Text('Далее'),
+                      ),
+                    );
+                  } else {
+                    return const SizedBox.shrink();
+                  }
+                },
               ),
             ],
           ),
