@@ -6,6 +6,7 @@ class Character {
   final int level;
   final String characterClass;
   final String race;
+  final Map<String, int> stats;
 
   Character({
     required this.id,
@@ -14,6 +15,7 @@ class Character {
     this.level = 1,
     required this.characterClass,
     required this.race,
+    this.stats = const {},
   });
 
   /// Создание копии персонажа с изменёнными параметрами
@@ -24,6 +26,7 @@ class Character {
     int? level,
     String? characterClass,
     String? race,
+    Map<String, int>? stats,
   }) {
     return Character(
       id: id ?? this.id,
@@ -32,6 +35,7 @@ class Character {
       level: level ?? this.level,
       characterClass: characterClass ?? this.characterClass,
       race: race ?? this.race,
+      stats: stats ?? this.stats,
     );
   }
 
@@ -44,6 +48,7 @@ class Character {
       'level': level,
       'characterClass': characterClass,
       'race': race,
+      'stats': stats,
     };
   }
 
@@ -56,6 +61,7 @@ class Character {
       level: json['level'] as int,
       characterClass: json['characterClass'] as String,
       race: json['race'] as String,
+      stats: Map<String, int>.from(json['stats'] ?? {}),
     );
   }
 }

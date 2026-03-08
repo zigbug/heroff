@@ -1,23 +1,38 @@
-// Состояния BLoC
-abstract class CharacterCreationState {}
+part of 'character_creation_bloc.dart';
 
-class CharacterCreationInitial extends CharacterCreationState {
-  final String name;
-  final bool hasPhoto;
+enum CharacterCreationStatus { initial, loading, success, failure }
 
-  CharacterCreationInitial({this.name = '', this.hasPhoto = false});
-}
+class CharacterCreationState extends Equatable {
+  const CharacterCreationState({
+    this.status = CharacterCreationStatus.initial,
+    this.character,
+    this.currentStep = 1,
+    this.selectedRace,
+    this.errorMessage,
+  });
 
-class CharacterCreationLoading extends CharacterCreationState {}
+  final CharacterCreationStatus status;
+  final Character? character;
+  final int currentStep;
+  final Race? selectedRace;
+  final String? errorMessage;
 
-class CharacterCreationSuccess extends CharacterCreationState {
-  final String photoPath;
+  CharacterCreationState copyWith({
+    CharacterCreationStatus? status,
+    Character? character,
+    int? currentStep,
+    Race? selectedRace,
+    String? errorMessage,
+  }) {
+    return CharacterCreationState(
+      status: status ?? this.status,
+      character: character ?? this.character,
+      currentStep: currentStep ?? this.currentStep,
+      selectedRace: selectedRace ?? this.selectedRace,
+      errorMessage: errorMessage ?? this.errorMessage,
+    );
+  }
 
-  CharacterCreationSuccess({required this.photoPath});
-}
-
-class CharacterCreationFailure extends CharacterCreationState {
-  final String error;
-
-  CharacterCreationFailure(this.error);
+  @override
+  List<Object?> get props => [status, character, currentStep, selectedRace, errorMessage];
 }

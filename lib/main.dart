@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'screens/character_creation_page.dart';
-import 'screens/race_selection_page.dart';
 import 'theme.dart';
 import 'blocs/character_creation/character_creation_bloc.dart';
 import 'services/camera_service.dart';
@@ -22,7 +21,6 @@ class MyApp extends StatelessWidget {
         title: 'Dungeons & Dragons',
         theme: DungeonTheme.woodParchmentTheme,
         home: const CharacterCreationPage(),
-        routes: {'/race-selection': (context) => const RaceSelectionPage()},
       ),
     );
   }

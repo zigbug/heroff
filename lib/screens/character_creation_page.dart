@@ -1,314 +1,114 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'dart:io';
-import '../theme.dart';
-import '../services/camera_service.dart';
+import 'package:heroff/models/race.dart';
+import 'package:heroff/widgets/character_points_distribution_step.dart';
+import 'package:heroff/widgets/race_selection_widget.dart';
+
 import '../blocs/character_creation/character_creation_bloc.dart';
-import '../blocs/character_creation/character_creation_state.dart';
-import '../blocs/character_creation/character_creation_event.dart';
+import '../widgets/character_name_photo_step.dart';
 
 class CharacterCreationPage extends StatelessWidget {
   const CharacterCreationPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        title: Text(
-          'Создание персонажа',
-          style: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
-        ),
+    // Mock data for races
+    final List<Race> races = [
+      Race(
+        id: '1',
+        name: 'Человек',
+        description: '+1 ко всем характеристикам',
+        statsBonus: {
+          'Сила': 1,
+          'Ловкость': 1,
+          'Телосложение': 1,
+          'Интеллект': 1,
+          'Мудрость': 1,
+          'Харизма': 1,
+        },
+        icon: '🧑',
       ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      Race(
+        id: '2',
+        name: 'Эльф',
+        description: '+2 к ловкости',
+        statsBonus: {'Ловкость': 2},
+        icon: '🧝',
+      ),
+      Race(
+        id: '3',
+        name: 'Дворф',
+        description: '+2 к телосложению',
+        statsBonus: {'Телосложение': 2},
+        icon: '🧔',
+      ),
+    ];
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Создание персонажа')),
+      body: BlocBuilder<CharacterCreationBloc, CharacterCreationState>(
+        builder: (context, state) {
+          final bloc = context.read<CharacterCreationBloc>();
+          final currentStep = state.currentStep;
+          final isFirstStep = currentStep == 1;
+          final isLastStep = currentStep == 3;
+
+          return Column(
             children: [
-              // Виджет прогресса (3 шага)
-              const Text(
-                'Шаги создания персонажа:',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Container(
-                    width: 30,
-                    height: 30,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                    child: const Center(
-                      child: Text('1', style: TextStyle(color: Colors.white)),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Container(
-                      height: 4,
-                      color: Theme.of(context).colorScheme.secondary,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Container(
-                    width: 30,
-                    height: 30,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Theme.of(context).colorScheme.secondary,
-                    ),
-                    child: const Center(
-                      child: Text('2', style: TextStyle(color: Colors.black)),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Container(
-                      height: 4,
-                      color: Theme.of(context).colorScheme.secondary,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Container(
-                    width: 30,
-                    height: 30,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Theme.of(context).colorScheme.secondary,
-                    ),
-                    child: const Center(
-                      child: Text('3', style: TextStyle(color: Colors.black)),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 30),
-
-              // Текстовое поле ввода имени
-              const Text(
-                'Введите имя персонажа:',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 10),
-              Container(
-                decoration: BoxDecoration(
-                  border: Border.all(
-                    color: Theme.of(context).colorScheme.secondary,
-                  ),
-                  borderRadius: BorderRadius.circular(8.0),
-                ),
-                child: TextField(
-                  decoration: InputDecoration(
-                    hintText: 'Имя персонажа',
-                    filled: true,
-                    fillColor: Theme.of(context).colorScheme.surface,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8.0),
-                      borderSide: BorderSide.none,
-                    ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: IndexedStack(
+                    index: currentStep - 1,
+                    children: [
+                      const CharacterNamePhotoStep(),
+                      RaceSelectionWidget(
+                        races: races,
+                        selectedRace: state.selectedRace,
+                        onRaceSelected: (race) {
+                          if (race != null) {
+                            bloc.add(RaceChanged(race));
+                          }
+                        },
+                      ),
+                      const CharacterPointsDistributionStep(),
+                    ],
                   ),
                 ),
               ),
-              const SizedBox(height: 30),
-
-              // Адаптивный контейнер под фото
-              const Text(
-                'Фотография персонажа:',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 10),
-              // Контейнер с квадратным соотношением сторон 1:1
-              Container(
-                width: double.infinity,
-                height: 250,
-                decoration: BoxDecoration(
-                  border: Border.all(
-                    color: Theme.of(context).colorScheme.secondary,
-                  ),
-                  borderRadius: BorderRadius.circular(8.0),
-                  color: Theme.of(context).colorScheme.surface,
-                ),
-                child:
-                    BlocBuilder<CharacterCreationBloc, CharacterCreationState>(
-                      builder: (context, state) {
-                        if (state is CharacterCreationLoading) {
-                          return const Center(
-                            child: CircularProgressIndicator(),
-                          );
-                        } else if (state is CharacterCreationSuccess) {
-                          return Stack(
-                            children: [
-                              // Основное изображение с квадратным форматом
-                              Center(
-                                child: AspectRatio(
-                                  aspectRatio: 1.0, // 1:1 соотношение
-                                  child: Image.file(
-                                    File(state.photoPath),
-                                    fit: BoxFit.cover,
-                                  ),
-                                ),
-                              ),
-                              // Рамка на видоискатель (полупрозрачная)
-                              Align(
-                                alignment: Alignment.center,
-                                child: Container(
-                                  width: 200, // Ширина рамки
-                                  height: 200, // Высота рамки
-                                  decoration: BoxDecoration(
-                                    border: Border.all(
-                                      color: Colors.white.withOpacity(0.7),
-                                      width: 2,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          );
-                        } else if (state is CharacterCreationFailure) {
-                          return Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(
-                                  Icons.error,
-                                  color: Colors.red,
-                                  size: 50,
-                                ),
-                                const SizedBox(height: 10),
-                                Text(
-                                  state.error,
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(color: Colors.red),
-                                ),
-                              ],
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    ElevatedButton(
+                      onPressed:
+                          isFirstStep
+                              ? null
+                              : () => bloc.add(StepChanged(currentStep - 1)),
+                      child: const Text('Назад'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () {
+                        if (isLastStep) {
+                          // TODO: Handle character finalization
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Персонаж создан! (пока нет)'),
                             ),
                           );
                         } else {
-                          // CharacterCreationInitial
-                          return Stack(
-                            children: [
-                              const Center(
-                                child: Icon(
-                                  Icons.camera_alt,
-                                  size: 50,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                              // Рамка на видоискатель (полупрозрачная)
-                              Align(
-                                alignment: Alignment.center,
-                                child: Container(
-                                  width: 200, // Ширина рамки
-                                  height: 200, // Высота рамки
-                                  decoration: BoxDecoration(
-                                    border: Border.all(
-                                      color: Colors.white.withOpacity(0.7),
-                                      width: 2,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          );
+                          bloc.add(StepChanged(currentStep + 1));
                         }
                       },
+                      child: Text(isLastStep ? 'Завершить' : 'Далее'),
                     ),
-              ),
-              const SizedBox(height: 30),
-
-              // Кнопки сделать фото и выбрать из галереи
-              Row(
-                children: [
-                  Expanded(
-                    child: SizedBox(
-                      height: 50,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          context.read<CharacterCreationBloc>().add(
-                            CharacterCreationTakePhoto(),
-                          );
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor:
-                              Theme.of(context).colorScheme.primary,
-                          foregroundColor:
-                              Theme.of(context).colorScheme.onPrimary,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8.0),
-                          ),
-                        ),
-                        child: const Text('Сделать фото'),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: SizedBox(
-                      height: 50,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          context.read<CharacterCreationBloc>().add(
-                            CharacterCreationPickFromGallery(),
-                          );
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor:
-                              Theme.of(context).colorScheme.secondary,
-                          foregroundColor:
-                              Theme.of(context).colorScheme.onSecondary,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8.0),
-                          ),
-                        ),
-                        child: const Text('Из галереи'),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-
-              // Кнопка "Далее" - появляется при заполнении имени и фото
-              const SizedBox(height: 20),
-              BlocBuilder<CharacterCreationBloc, CharacterCreationState>(
-                builder: (context, state) {
-                  // Временная проверка - в реальном приложении нужно передавать имя из TextField
-                  bool isNameFilled =
-                      true; // Это будет зависеть от значения в TextField
-                  bool isPhotoTaken = state is CharacterCreationSuccess;
-
-                  if (isNameFilled && isPhotoTaken) {
-                    return SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          // Переход на следующий шаг (выбор расы)
-                          // В реальном приложении здесь будет переход к следующему экрану
-                          Navigator.pushNamed(context, '/race-selection');
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor:
-                              Theme.of(context).colorScheme.primary,
-                          foregroundColor:
-                              Theme.of(context).colorScheme.onPrimary,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8.0),
-                          ),
-                        ),
-                        child: const Text('Далее'),
-                      ),
-                    );
-                  } else {
-                    return const SizedBox.shrink();
-                  }
-                },
+                  ],
+                ),
               ),
             ],
-          ),
-        ),
+          );
+        },
       ),
     );
   }
