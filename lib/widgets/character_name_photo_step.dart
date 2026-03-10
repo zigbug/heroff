@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'dart:io';
 import '../blocs/character_creation/character_creation_bloc.dart';
+import '../services/ai_service.dart';
 
 class CharacterNamePhotoStep extends StatefulWidget {
   const CharacterNamePhotoStep({super.key});
@@ -63,7 +64,35 @@ class _CharacterNamePhotoStepState extends State<CharacterNamePhotoStep> {
 
                   final photoPath = state.character?.photoPath;
                   if (photoPath != null && photoPath.isNotEmpty) {
-                    return Image.file(File(photoPath), fit: BoxFit.cover);
+                    return Stack(
+                      children: [
+                        Image.file(File(photoPath), fit: BoxFit.cover),
+                        Positioned(
+                          bottom: 10,
+                          right: 10,
+                          child: FloatingActionButton.small(
+                            onPressed: () async {
+                              // Обработка изображения с помощью ИИ
+                              final aiService = AIService();
+                              final result = await aiService.processImageWithAI(
+                                photoPath,
+                                'Проанализируй это изображение персонажа и опиши его характеристики',
+                              );
+                              if (result != null) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'Результат обработки: $result',
+                                    ),
+                                  ),
+                                );
+                              }
+                            },
+                            child: const Icon(Icons.auto_fix_high),
+                          ),
+                        ),
+                      ],
+                    );
                   } else {
                     return const Center(
                       child: Icon(
