@@ -1,9 +1,11 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:heroff/secret/secrets.dart';
+import 'package:heroff/services/ai_photo_service.dart';
 import 'package:http/http.dart' as http;
 
-class HuggingFaceService {
+/// Реализация сервиса Hugging Face
+class HuggingFaceService implements AIPhotoService {
   static const String _apiKey = Secrets.HUGGING_FACE_API_KEY;
 
   // ✅ НОВЫЙ базовый URL (2026)
@@ -12,6 +14,21 @@ class HuggingFaceService {
 
   // Модель для i2i с поддержкой инструкций
   static const String _modelId = 'FireRedTeam/FireRed-Image-Edit-1.1';
+
+  @override
+  Future<String?> processImageWithAI(String base64image, String prompt) async {
+    // Конвертируем base64 в Uint8List
+    final imageBytes = base64Decode(base64image);
+
+    // Вызываем метод generateImageToImage
+    final result = await generateImageToImage(
+      imageBytes: imageBytes,
+      prompt: prompt,
+    );
+
+    // Конвертируем результат обратно в base64
+    return base64Encode(result);
+  }
 
   Future<Uint8List> generateImageToImage({
     required Uint8List imageBytes,

@@ -4,7 +4,7 @@ import 'package:heroff/models/race.dart';
 import 'package:heroff/widgets/character_points_distribution_step.dart';
 import 'package:heroff/widgets/race_selection_widget.dart';
 
-import '../blocs/character_creation/character_creation_bloc.dart';
+import 'bloc/character_creation_bloc.dart';
 import '../widgets/character_name_photo_step.dart';
 
 class CharacterCreationPage extends StatelessWidget {

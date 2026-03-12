@@ -1,8 +1,9 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:heroff/services/hugging_face_service.dart';
+import 'package:heroff/services/ai_photo_service.dart';
 import 'package:heroff/services/image_storage_service.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:heroff/models/character.dart';
@@ -15,8 +16,8 @@ part 'character_creation_state.dart';
 class CharacterCreationBloc
     extends Bloc<CharacterCreationEvent, CharacterCreationState> {
   final CameraService cameraService;
-  final huggingFaceService = HuggingFaceService();
-  final ImageStorageService imageStorageService = ImageStorageService();
+  final ImageStorageService imageStorageService;
+  final AIPhotoService aiPhotoService;
 
   static const int baseStatValue = 8;
   static const int totalBonusPoints = 6;
@@ -29,25 +30,28 @@ class CharacterCreationBloc
     'Харизма',
   ];
 
-  CharacterCreationBloc({required this.cameraService})
-    : super(
-        CharacterCreationState(
-          character: Character(
-            id: DateTime.now().millisecondsSinceEpoch.toString(),
-            name: '',
-            characterClass: '',
-            race: '',
-            stats: {
-              'Сила': baseStatValue,
-              'Ловкость': baseStatValue,
-              'Телосложение': baseStatValue,
-              'Интеллект': baseStatValue,
-              'Мудрость': baseStatValue,
-              'Харизма': baseStatValue,
-            },
-          ),
-        ),
-      ) {
+  CharacterCreationBloc({
+    required this.cameraService,
+    required this.aiPhotoService,
+    required this.imageStorageService,
+  }) : super(
+         CharacterCreationState(
+           character: Character(
+             id: DateTime.now().millisecondsSinceEpoch.toString(),
+             name: '',
+             characterClass: '',
+             race: '',
+             stats: {
+               'Сила': baseStatValue,
+               'Ловкость': baseStatValue,
+               'Телосложение': baseStatValue,
+               'Интеллект': baseStatValue,
+               'Мудрость': baseStatValue,
+               'Харизма': baseStatValue,
+             },
+           ),
+         ),
+       ) {
     on<NameChanged>(_onNameChanged);
     on<PhotoTaken>(_onPhotoTaken);
     on<PhotoPicked>(_onPhotoPicked);
@@ -67,7 +71,76 @@ class CharacterCreationBloc
   _onChangePhotoByAiPressed(
     ChangedPhotoByAiPressed event,
     Emitter<CharacterCreationState> emit,
-  ) {}
+  ) async {
+    emit(state.copyWith(status: CharacterCreationStatus.loading));
+    try {
+      // Получаем текущее фото из состояния
+      final currentPhotoPath = state.character?.photoPath;
+
+      if (currentPhotoPath == null) {
+        emit(
+          state.copyWith(
+            status: CharacterCreationStatus.failure,
+            errorMessage: 'Нет текущего фото для обработки',
+          ),
+        );
+        return;
+      }
+
+      // Загружаем текущее изображение из хранилища
+      final currentImageBytes = await imageStorageService.loadImage(
+        currentPhotoPath,
+      );
+
+      if (currentImageBytes == null) {
+        emit(
+          state.copyWith(
+            status: CharacterCreationStatus.failure,
+            errorMessage: 'Не удалось загрузить текущее изображение',
+          ),
+        );
+        return;
+      }
+
+      final base64Image = base64Encode(currentImageBytes);
+
+      // Используем AIPhotoService для обработки изображения
+      final processedImageBase64 = await aiPhotoService.processImageWithAI(
+        base64Image,
+        "A masterpiece digital artwork in the style of Hayao Miyazaki and Studio Ghibli. Ghibli aesthetic, hand-drawn animation look, soft cel-shaded rendering, lush and vibrant fantasy landscapes, warm golden hour lighting, fluffy clouds, highly detailed environment, whimsical and nostalgic atmosphere, clean lines, beautiful anime art, 8k resolution, cinematic composition, inspired by Spirited Away and My Neighbor Totoro.",
+      );
+
+      if (processedImageBase64 != null) {
+        // Конвертируем обратно в байты
+        final imageBytes = base64Decode(processedImageBase64);
+
+        // Сохраняем обработанное изображение с помощью ImageStorageService
+        final savedImagePath = await imageStorageService.saveImage(imageBytes);
+
+        emit(
+          state.copyWith(
+            status: CharacterCreationStatus.success,
+            character: state.character!.copyWith(photoPath: savedImagePath),
+          ),
+        );
+      } else {
+        emit(
+          state.copyWith(
+            status: CharacterCreationStatus.failure,
+            errorMessage: 'Не удалось обработать изображение с помощью AI',
+          ),
+        );
+      }
+    } catch (e) {
+      print('Ошибка при обработке изображения с помощью AI: $e');
+      emit(
+        state.copyWith(
+          status: CharacterCreationStatus.failure,
+          errorMessage: e.toString(),
+        ),
+      );
+    }
+  }
 
   void _onRaceChanged(RaceChanged event, Emitter<CharacterCreationState> emit) {
     final newStats = {
@@ -105,10 +178,14 @@ class CharacterCreationBloc
     try {
       final XFile? photo = await cameraService.takePicture();
       if (photo != null) {
+        // Используем ImageStorageService для сохранения фото
+        final imageBytes = await photo.readAsBytes();
+        final savedImagePath = await imageStorageService.saveImage(imageBytes);
+
         emit(
           state.copyWith(
             status: CharacterCreationStatus.success,
-            character: state.character!.copyWith(photoPath: photo.path),
+            character: state.character!.copyWith(photoPath: savedImagePath),
           ),
         );
       } else {
@@ -131,25 +208,13 @@ class CharacterCreationBloc
     emit(state.copyWith(status: CharacterCreationStatus.loading));
     try {
       final file = File(event.photoPath);
-      print('huggin serv starts');
-      final image = await huggingFaceService.generateImageToImage(
-        imageBytes: await file.readAsBytes(),
-        prompt:
-            "A masterpiece digital artwork in the style of Hayao Miyazaki and Studio Ghibli. Ghibli aesthetic, hand-drawn animation look, soft cel-shaded rendering, lush and vibrant fantasy landscapes, warm golden hour lighting, fluffy clouds, highly detailed environment, whimsical and nostalgic atmosphere, clean lines, beautiful anime art, 8k resolution, cinematic composition, inspired by Spirited Away and My Neighbor Totoro.",
-      );
-      print('huggin serv ends');
-      print('image $image');
+      final imageBytes = await file.readAsBytes();
+      final savedImagePath = await imageStorageService.saveImage(imageBytes);
 
-      final XFile newPhoto = XFile.fromData(
-        image,
-        name: 'image2.jpg', // опционально: имя файла
-        mimeType: 'image/jpeg', // опционально: MIME-тип
-        lastModified: DateTime.now(), // опционально: дата изменения
-      );
       emit(
         state.copyWith(
           status: CharacterCreationStatus.success,
-          character: state.character!.copyWith(photoPath: newPhoto.path),
+          character: state.character!.copyWith(photoPath: savedImagePath),
         ),
       );
     } catch (e) {

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:heroff/screens/bloc/character_creation_bloc.dart';
 import 'screens/character_creation_page.dart';
+import 'services/image_storage_service.dart';
 import 'theme.dart';
-import 'blocs/character_creation/character_creation_bloc.dart';
 import 'services/camera_service.dart';
+import 'services/ai_photo_realisations/hugging_face_service.dart';
 
 void main() {
   // Тестирование сервиса хранения изображений
@@ -22,7 +24,11 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocProvider(
       create:
-          (context) => CharacterCreationBloc(cameraService: CameraService()),
+          (context) => CharacterCreationBloc(
+            cameraService: CameraService(),
+            aiPhotoService: HuggingFaceService(),
+            imageStorageService: ImageStorageServiceImpl(),
+          ),
       child: MaterialApp(
         title: 'Dungeons & Dragons',
         theme: DungeonTheme.woodParchmentTheme,

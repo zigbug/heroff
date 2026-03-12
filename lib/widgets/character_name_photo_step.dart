@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:heroff/services/hugging_face_service.dart';
+import 'package:heroff/services/ai_photo_realisations/hugging_face_service.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
-import '../blocs/character_creation/character_creation_bloc.dart';
-import '../services/ai_service.dart';
-import '../services/ai_service.dart';
+import '../screens/bloc/character_creation_bloc.dart';
+import '../services/ai_photo_service.dart';
+import '../services/ai_photo_service.dart';
 
 class CharacterNamePhotoStep extends StatefulWidget {
   const CharacterNamePhotoStep({super.key});
@@ -131,21 +131,9 @@ class _CharacterNamePhotoStepState extends State<CharacterNamePhotoStep> {
                           right: 10,
                           child: FloatingActionButton.small(
                             onPressed: () async {
-                              // Обработка изображения с помощью ИИ
-                              // final aiService = AIService();
-                              // final result = await aiService.processImageWithAI(
-                              //   photoPath,
-                              //   'Проанализируй это изображение персонажа и опиши его характеристики',
-                              // );
-                              // if (result != null) {
-                              //   ScaffoldMessenger.of(context).showSnackBar(
-                              //     SnackBar(
-                              //       content: Text(
-                              //         'Результат обработки: $result',
-                              //       ),
-                              //     ),
-                              //   );
-                              // }
+                              context.read<CharacterCreationBloc>().add(
+                                ChangedPhotoByAiPressed(),
+                              );
                             },
                             child: const Icon(Icons.auto_fix_high),
                           ),

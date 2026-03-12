@@ -1,93 +1,151 @@
-import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class ImageStorageService {
-  static const String _imageKeyPrefix = 'stored_image_';
-  static const String _imageKeysKey = 'image_keys';
+/// Абстракция сервиса хранения изображений
+abstract class ImageStorageService {
+  /// Сохраняет изображение и возвращает путь к нему
+  Future<String> saveImage(Uint8List imageBytes, {String? key});
 
-  /// Сохраняет изображение в shared preferences
-  /// Возвращает уникальный ключ для изображения
-  static Future<String> saveImage(Uint8List imageBytes, {String? key}) async {
-    final prefs = await SharedPreferences.getInstance();
+  /// Загружает изображение по пути
+  Future<Uint8List?> loadImage(String path);
 
-    // Если ключ не указан, генерируем уникальный
-    final imageKey =
-        key ?? '${_imageKeyPrefix}${DateTime.now().millisecondsSinceEpoch}';
+  /// Удаляет изображение по пути
+  Future<bool> deleteImage(String path);
 
-    // Конвертируем байты в base64 строку для сохранения
-    final base64Image = base64Encode(imageBytes);
+  /// Получает все пути сохраненных изображений
+  Future<List<String>> getAllImagePaths();
 
-    // Сохраняем изображение
-    await prefs.setString(imageKey, base64Image);
+  /// Очищает все сохраненные изображения
+  Future<void> clearAllImages();
 
-    // Добавляем ключ в список сохраненных изображений
-    final currentKeys = prefs.getStringList(_imageKeysKey) ?? [];
-    if (!currentKeys.contains(imageKey)) {
-      currentKeys.add(imageKey);
-      await prefs.setStringList(_imageKeysKey, currentKeys);
+  /// Проверяет, существует ли изображение по пути
+  Future<bool> imageExists(String path);
+}
+
+/// Реализация сервиса хранения изображений
+class ImageStorageServiceImpl implements ImageStorageService {
+  static const String _imageKeysKey = 'image_paths';
+  static const String _appDirectoryKey = 'app_images_directory';
+
+  @override
+  Future<String> saveImage(Uint8List imageBytes, {String? key}) async {
+    final directoryPath = await _getAppDirectory();
+    final directory = Directory(directoryPath);
+
+    // Создаем директорию, если она не существует
+    if (!await directory.exists()) {
+      await directory.create(recursive: true);
     }
 
-    return imageKey;
+    // Генерируем уникальное имя файла
+    final fileName =
+        key ?? 'image_${DateTime.now().millisecondsSinceEpoch}.png';
+    final filePath = '$directoryPath/$fileName';
+
+    // Сохраняем изображение в файл
+    final file = File(filePath);
+    await file.writeAsBytes(imageBytes);
+
+    // Сохраняем путь в shared preferences
+    final prefs = await SharedPreferences.getInstance();
+    final currentPaths = prefs.getStringList(_imageKeysKey) ?? [];
+    if (!currentPaths.contains(filePath)) {
+      currentPaths.add(filePath);
+      await prefs.setStringList(_imageKeysKey, currentPaths);
+    }
+
+    return filePath;
   }
 
-  /// Загружает изображение из shared preferences по ключу
-  static Future<Uint8List?> loadImage(String key) async {
-    final prefs = await SharedPreferences.getInstance();
-
-    final base64Image = prefs.getString(key);
-    if (base64Image == null) {
-      return null;
-    }
-
+  @override
+  Future<Uint8List?> loadImage(String path) async {
     try {
-      return base64Decode(base64Image);
+      final file = File(path);
+      if (await file.exists()) {
+        return await file.readAsBytes();
+      }
+      return null;
     } catch (e) {
-      debugPrint('Ошибка декодирования изображения: $e');
+      debugPrint('Ошибка загрузки изображения: $e');
       return null;
     }
   }
 
-  /// Удаляет изображение из shared preferences
-  static Future<bool> deleteImage(String key) async {
-    final prefs = await SharedPreferences.getInstance();
+  @override
+  Future<bool> deleteImage(String path) async {
+    try {
+      final file = File(path);
+      final exists = await file.exists();
+      if (exists) {
+        await file.delete();
+      }
 
-    final result = prefs.remove(key);
+      // Удаляем путь из списка сохраненных изображений
+      final prefs = await SharedPreferences.getInstance();
+      final currentPaths = prefs.getStringList(_imageKeysKey) ?? [];
+      final updatedPaths = currentPaths..remove(path);
+      await prefs.setStringList(_imageKeysKey, updatedPaths);
 
-    // Удаляем ключ из списка сохраненных изображений
-    final currentKeys = prefs.getStringList(_imageKeysKey) ?? [];
-    final updatedKeys = currentKeys..remove(key);
-    await prefs.setStringList(_imageKeysKey, updatedKeys);
-
-    return result;
+      return exists;
+    } catch (e) {
+      debugPrint('Ошибка удаления изображения: $e');
+      return false;
+    }
   }
 
-  /// Получает все ключи сохраненных изображений
-  static Future<List<String>> getAllImageKeys() async {
+  @override
+  Future<List<String>> getAllImagePaths() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getStringList(_imageKeysKey) ?? [];
   }
 
-  /// Очищает все сохраненные изображения
-  static Future<void> clearAllImages() async {
-    final prefs = await SharedPreferences.getInstance();
+  @override
+  Future<void> clearAllImages() async {
+    // Получаем все пути изображений
+    final paths = await getAllImagePaths();
 
-    // Получаем все ключи изображений
-    final keys = await getAllImageKeys();
-
-    // Удаляем все изображения
-    for (final key in keys) {
-      prefs.remove(key);
+    // Удаляем все файлы
+    for (final path in paths) {
+      try {
+        final file = File(path);
+        if (await file.exists()) {
+          await file.delete();
+        }
+      } catch (e) {
+        debugPrint('Ошибка удаления файла: $e');
+      }
     }
 
-    // Очищаем список ключей
+    // Очищаем список путей
+    final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList(_imageKeysKey, []);
   }
 
-  /// Проверяет, существует ли изображение с указанным ключом
-  static Future<bool> imageExists(String key) async {
+  @override
+  Future<bool> imageExists(String path) async {
+    final file = File(path);
+    return await file.exists();
+  }
+
+  /// Получает путь к директории приложения для хранения изображений
+  Future<String> _getAppDirectory() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.containsKey(key);
+    final savedPath = prefs.getString(_appDirectoryKey);
+
+    if (savedPath != null && savedPath.isNotEmpty) {
+      return savedPath;
+    }
+
+    // Если путь не сохранен, получаем новый путь
+    final directory = await getApplicationDocumentsDirectory();
+    final appDirectory = '${directory.path}/images';
+
+    // Сохраняем путь в shared preferences
+    await prefs.setString(_appDirectoryKey, appDirectory);
+
+    return appDirectory;
   }
 }

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:heroff/blocs/character_creation/character_creation_bloc.dart';
+import 'package:heroff/screens/bloc/character_creation_bloc.dart';
 
 class CharacterPointsDistributionStep extends StatelessWidget {
   const CharacterPointsDistributionStep({super.key});
@@ -18,10 +18,14 @@ class CharacterPointsDistributionStep extends StatelessWidget {
 
         int spentPoints = 0;
         stats.forEach((key, value) {
-          spentPoints += (value - (CharacterCreationBloc.baseStatValue + (racialBonuses[key] ?? 0)));
+          spentPoints +=
+              (value -
+                  (CharacterCreationBloc.baseStatValue +
+                      (racialBonuses[key] ?? 0)));
         });
 
-        final remainingPoints = CharacterCreationBloc.totalBonusPoints - spentPoints;
+        final remainingPoints =
+            CharacterCreationBloc.totalBonusPoints - spentPoints;
 
         return SingleChildScrollView(
           child: Column(
@@ -38,8 +42,11 @@ class CharacterPointsDistributionStep extends StatelessWidget {
               ),
               const SizedBox(height: 24),
               ...CharacterCreationBloc.statsOrder.map((statName) {
-                final statValue = stats[statName] ?? CharacterCreationBloc.baseStatValue;
-                final baseStatForDecrement = CharacterCreationBloc.baseStatValue + (racialBonuses[statName] ?? 0);
+                final statValue =
+                    stats[statName] ?? CharacterCreationBloc.baseStatValue;
+                final baseStatForDecrement =
+                    CharacterCreationBloc.baseStatValue +
+                    (racialBonuses[statName] ?? 0);
                 return Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8.0),
                   child: Row(
@@ -50,27 +57,32 @@ class CharacterPointsDistributionStep extends StatelessWidget {
                         children: [
                           IconButton(
                             icon: const Icon(Icons.remove_circle_outline),
-                            onPressed: statValue > baseStatForDecrement
-                                ? () {
-                                    context
-                                        .read<CharacterCreationBloc>()
-                                        .add(StatDecremented(statName));
-                                  }
-                                : null,
+                            onPressed:
+                                statValue > baseStatForDecrement
+                                    ? () {
+                                      context.read<CharacterCreationBloc>().add(
+                                        StatDecremented(statName),
+                                      );
+                                    }
+                                    : null,
                           ),
                           Text(
                             '$statValue',
-                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                           IconButton(
                             icon: const Icon(Icons.add_circle_outline),
-                            onPressed: remainingPoints > 0
-                                ? () {
-                                    context
-                                        .read<CharacterCreationBloc>()
-                                        .add(StatIncremented(statName));
-                                  }
-                                : null,
+                            onPressed:
+                                remainingPoints > 0
+                                    ? () {
+                                      context.read<CharacterCreationBloc>().add(
+                                        StatIncremented(statName),
+                                      );
+                                    }
+                                    : null,
                           ),
                         ],
                       ),
