@@ -16,9 +16,25 @@ class NameChanged extends CharacterCreationEvent {
   List<Object> get props => [name];
 }
 
-class PhotoTaken extends CharacterCreationEvent {}
+class PhotoTaken extends CharacterCreationEvent {
+  const PhotoTaken(this.photoPath);
 
-class PhotoPicked extends CharacterCreationEvent {}
+  final String photoPath;
+
+  @override
+  List<Object> get props => [photoPath];
+}
+
+class PhotoPicked extends CharacterCreationEvent {
+  const PhotoPicked(this.photoPath);
+
+  final String photoPath;
+
+  @override
+  List<Object> get props => [photoPath];
+}
+
+class ChangedPhotoByAiPressed extends CharacterCreationEvent {}
 
 class StepChanged extends CharacterCreationEvent {
   const StepChanged(this.step);
@@ -28,7 +44,6 @@ class StepChanged extends CharacterCreationEvent {
   @override
   List<Object> get props => [step];
 }
-
 
 class RaceChanged extends CharacterCreationEvent {
   const RaceChanged(this.race);
