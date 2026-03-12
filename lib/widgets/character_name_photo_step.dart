@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import '../blocs/character_creation/character_creation_bloc.dart';
 import '../services/ai_service.dart';
+import '../services/ai_service.dart';
 
 class CharacterNamePhotoStep extends StatefulWidget {
   const CharacterNamePhotoStep({super.key});
