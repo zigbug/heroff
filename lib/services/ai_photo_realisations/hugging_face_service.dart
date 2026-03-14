@@ -16,6 +16,9 @@ class HuggingFaceService implements AIPhotoService {
   static const String _modelId = 'FireRedTeam/FireRed-Image-Edit-1.1';
 
   @override
+  String get serviceName => 'HuggingFace';
+
+  @override
   Future<String?> processImageWithAI(String base64image, String prompt) async {
     // Конвертируем base64 в Uint8List
     final imageBytes = base64Decode(base64image);

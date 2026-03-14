@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:heroff/screens/bloc/character_creation_bloc.dart';
+
 import 'screens/character_creation_page.dart';
+import 'services/ai_photo_realisations/openrouter_service.dart';
+import 'services/camera_service.dart';
 import 'services/image_storage_service.dart';
 import 'theme.dart';
-import 'services/camera_service.dart';
-import 'services/ai_photo_realisations/hugging_face_service.dart';
 
 void main() {
   // Тестирование сервиса хранения изображений
@@ -26,7 +27,8 @@ class MyApp extends StatelessWidget {
       create:
           (context) => CharacterCreationBloc(
             cameraService: CameraService(),
-            aiPhotoService: HuggingFaceService(),
+            aiPhotoService: OpenRouterService(),
+            // HuggingFaceService(),
             imageStorageService: ImageStorageServiceImpl(),
           ),
       child: MaterialApp(
