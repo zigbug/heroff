@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:heroff/secret/secrets.dart';
 import 'package:heroff/services/ai_photo_service.dart';
 import 'package:http/http.dart' as http;
+import 'openrouter_response_dto.dart';
 
 /// Реализация сервиса OpenRouter для генерации изображений
 class OpenRouterService implements AIPhotoService {
@@ -11,7 +12,7 @@ class OpenRouterService implements AIPhotoService {
       'https://openrouter.ai/api/v1/chat/completions';
 
   // Модель для i2i с поддержкой инструкций
-  static const String _model = 'google/gemini-3.1-flash-image-preview';
+  static const String _model = 'google/gemini-3.1-flash-image-preview-20260226';
 
   @override
   String get serviceName => 'OpenRouter';
@@ -28,10 +29,10 @@ class OpenRouterService implements AIPhotoService {
     );
 
     // Конвертируем результат обратно в base64
-    return base64Encode(result);
+    return result != null ? base64Encode(result) : null;
   }
 
-  Future<Uint8List> generateImageToImage({
+  Future<Uint8List?> generateImageToImage({
     required Uint8List imageBytes,
     required String prompt,
     String negativePrompt = 'blurry, bad quality, distorted',
@@ -73,8 +74,22 @@ class OpenRouterService implements AIPhotoService {
       );
 
       if (response.statusCode == 200) {
-        // ✅ Успех — возвращаем байты изображения
-        return response.bodyBytes;
+        // ✅ Успех — парсим JSON и извлекаем изображение
+        final jsonResponse = json.decode(response.body);
+        final dto = OpenRouterResponseDto.fromJson(jsonResponse);
+        
+        if (dto.choices.isNotEmpty &&
+            dto.choices[0].message.images.isNotEmpty) {
+          final imageUrl = dto.choices[0].message.images[0].imageUrl.url;
+          
+          // Извлекаем base64 часть из URL изображения
+          if (imageUrl.startsWith('data:image')) {
+            final base64Data = imageUrl.split(',').last;
+            return base64Decode(base64Data);
+          }
+        }
+        // Если не удалось получить изображение из ответа
+        return null;
       } else if (response.statusCode == 429) {
         // ⏳ Лимит запросов — ждём и повторяем
         retries++;
