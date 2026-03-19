@@ -2,7 +2,8 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:heroff/secret/secrets.dart';
 import 'package:heroff/services/ai_photo_service.dart';
-import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
+import 'package:heroff/utils/talker_config.dart';
 
 /// Реализация сервиса Hugging Face
 class HuggingFaceService implements AIPhotoService {
@@ -14,6 +15,9 @@ class HuggingFaceService implements AIPhotoService {
 
   // Модель для i2i с поддержкой инструкций
   static const String _modelId = 'FireRedTeam/FireRed-Image-Edit-1.1';
+
+  // Используем Dio с логгером
+  final Dio _dio = TalkerConfig.createDioWithLogger();
 
   @override
   String get serviceName => 'HuggingFace';
@@ -51,51 +55,75 @@ class HuggingFaceService implements AIPhotoService {
       },
     };
 
-    final uri = Uri.parse('$_baseUrl/$_modelId');
-
     int retries = 0;
     const int maxRetries = 3;
 
     while (retries < maxRetries) {
-      final response = await http.post(
-        uri,
-        headers: {
-          'Authorization': 'Bearer $_apiKey',
-          'Content-Type': 'application/json',
-          // ✅ Ждать загрузку модели (до 30 сек на бесплатном тарифе)
-          'X-Wait-For-Model': 'true',
-        },
-        body: jsonEncode(payload),
-      );
+      try {
+        TalkerConfig.log('Отправка запроса к Hugging Face API');
+        
+        final response = await _dio.post(
+          '$_baseUrl/$_modelId',
+          options: Options(
+            headers: {
+              'Authorization': 'Bearer $_apiKey',
+              'Content-Type': 'application/json',
+              // ✅ Ждать загрузку модели (до 30 сек на бесплатном тарифе)
+              'X-Wait-For-Model': 'true',
+            },
+          ),
+          data: payload,
+        );
 
-      if (response.statusCode == 200) {
-        // ✅ Успех — возвращаем байты изображения
-        return response.bodyBytes;
-      } else if (response.statusCode == 503) {
-        // ⏳ Модель "спит" — ждём и повторяем
-        retries++;
-        await Future.delayed(Duration(seconds: 5 + retries * 2));
-        continue;
-      } else if (response.statusCode == 410) {
-        // ❌ Старый URL — не должно произойти с новым _baseUrl
-        throw Exception('Используйте новый endpoint: $_baseUrl');
-      } else if (response.statusCode == 401) {
-        throw Exception('Неверный токен или нет прав на Inference Providers');
-      } else if (response.statusCode == 400) {
-        // 🔄 Попробуем отправить как binary (некоторые модели требуют)
-        return await _sendAsBinary(
-          imageBytes,
-          prompt,
-          negativePrompt,
-          guidanceScale,
-        );
-      } else {
-        // 📋 Дебаг-информация
-        print('❌ Ответ от сервера: ${response.statusCode}');
-        print('📄 Тело: ${response.body}');
-        throw Exception(
-          'HF API Error ${response.statusCode}: ${response.body}',
-        );
+        if (response.statusCode == 200) {
+          // ✅ Успех — возвращаем байты изображения
+          TalkerConfig.log('Успешно получено изображение от Hugging Face API');
+          return response.data;
+        } else if (response.statusCode == 503) {
+          // ⏳ Модель "спит" — ждём и повторяем
+          retries++;
+          await Future.delayed(Duration(seconds: 5 + retries * 2));
+          continue;
+        } else if (response.statusCode == 410) {
+          // ❌ Старый URL — не должно произойти с новым _baseUrl
+          TalkerConfig.logErrorCustom('Используйте новый endpoint: $_baseUrl');
+          throw Exception('Используйте новый endpoint: $_baseUrl');
+        } else if (response.statusCode == 401) {
+          TalkerConfig.logErrorCustom('Неверный токен или нет прав на Inference Providers');
+          throw Exception('Неверный токен или нет прав на Inference Providers');
+        } else if (response.statusCode == 400) {
+          // 🔄 Попробуем отправить как binary (некоторые модели требуют)
+          TalkerConfig.logWarning('Получен статус 400, пробуем отправить как binary');
+          return await _sendAsBinary(
+            imageBytes,
+            prompt,
+            negativePrompt,
+            guidanceScale,
+          );
+        } else {
+          // 📋 Дебаг-информация
+          TalkerConfig.logErrorCustom('HF API Error ${response.statusCode}: ${response.data}');
+          throw Exception(
+            'HF API Error ${response.statusCode}: ${response.data}',
+          );
+        }
+      } on DioException catch (e, stackTrace) {
+        TalkerConfig.logError(e, stackTrace: stackTrace);
+        if (e.type == DioExceptionType.connectionTimeout ||
+            e.type == DioExceptionType.sendTimeout ||
+            e.type == DioExceptionType.receiveTimeout) {
+          retries++;
+          if (retries >= maxRetries) {
+            rethrow;
+          }
+          await Future.delayed(Duration(seconds: 5 + retries * 2));
+          continue;
+        } else {
+          rethrow;
+        }
+      } catch (e, stackTrace) {
+        TalkerConfig.logError(e, stackTrace: stackTrace);
+        rethrow;
       }
     }
     throw Exception('Превышено количество попыток ($maxRetries)');
@@ -108,26 +136,39 @@ class HuggingFaceService implements AIPhotoService {
     String negativePrompt,
     double guidanceScale,
   ) async {
-    final uri = Uri.parse('$_baseUrl/$_modelId');
+    try {
+      TalkerConfig.log('Отправка запроса к Hugging Face API в бинарном формате');
+      
+      final response = await _dio.post(
+        '$_baseUrl/$_modelId',
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $_apiKey',
+            'Content-Type': 'application/octet-stream',
+            'X-Wait-For-Model': 'true',
+            // ⚠️ Параметры в заголовках работают не для всех моделей
+            'X-Prompt': prompt,
+            'X-Guidance-Scale': guidanceScale.toString(),
+          },
+        ),
+        data: imageBytes,
+      );
 
-    final response = await http.post(
-      uri,
-      headers: {
-        'Authorization': 'Bearer $_apiKey',
-        'Content-Type': 'application/octet-stream',
-        'X-Wait-For-Model': 'true',
-        // ⚠️ Параметры в заголовках работают не для всех моделей
-        'X-Prompt': prompt,
-        'X-Guidance-Scale': guidanceScale.toString(),
-      },
-      body: imageBytes,
-    );
-
-    if (response.statusCode == 200) {
-      return response.bodyBytes;
+      if (response.statusCode == 200) {
+        TalkerConfig.log('Успешно получено изображение от Hugging Face API (binary)');
+        return response.data;
+      }
+      
+      TalkerConfig.logErrorCustom('Binary request failed: ${response.statusCode}\n${response.data}');
+      throw Exception(
+        'Binary request failed: ${response.statusCode}\n${response.data}',
+      );
+    } on DioException catch (e, stackTrace) {
+      TalkerConfig.logError(e, stackTrace: stackTrace);
+      rethrow;
+    } catch (e, stackTrace) {
+      TalkerConfig.logError(e, stackTrace: stackTrace);
+      rethrow;
     }
-    throw Exception(
-      'Binary request failed: ${response.statusCode}\n${response.body}',
-    );
   }
 }

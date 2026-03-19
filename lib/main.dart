@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:heroff/screens/bloc/character_creation_bloc.dart';
+import 'package:heroff/utils/talker_config.dart';
+import 'package:talker_flutter/talker_flutter.dart';
 
 import 'screens/character_creation_page.dart';
 import 'services/ai_photo_realisations/openrouter_service.dart';
@@ -31,10 +33,16 @@ class MyApp extends StatelessWidget {
             // HuggingFaceService(),
             imageStorageService: ImageStorageServiceImpl(),
           ),
-      child: MaterialApp(
-        title: 'Dungeons & Dragons',
-        theme: DungeonTheme.woodParchmentTheme,
-        home: const CharacterCreationPage(),
+      child: TalkerWrapper(
+        talker: TalkerConfig.talker,
+        child: MaterialApp(
+          title: 'Dungeons & Dragons',
+          theme: DungeonTheme.woodParchmentTheme,
+          home: const CharacterCreationPage(),
+          navigatorObservers: [
+            TalkerRouteObserver(TalkerConfig.talker),
+          ],
+        ),
       ),
     );
   }

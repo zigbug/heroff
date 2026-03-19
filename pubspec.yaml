@@ -42,6 +42,8 @@ dependencies:
   dio: ^5.7.0
   shared_preferences: ^2.3.2
   path_provider: ^2.1.5
+  talker: ^4.0.3
+  talker_dio_logger_plus: ^1.0.0
 
 dev_dependencies:
   flutter_test:

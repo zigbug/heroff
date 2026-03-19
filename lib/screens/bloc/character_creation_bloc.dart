@@ -9,6 +9,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:heroff/models/character.dart';
 import 'package:heroff/models/race.dart';
 import '../../services/camera_service.dart';
+import 'package:talker_flutter/talker_flutter.dart';
+import '../../utils/talker_config.dart';
 
 part 'character_creation_event.dart';
 part 'character_creation_state.dart';
@@ -74,10 +76,14 @@ class CharacterCreationBloc
   ) async {
     emit(state.copyWith(status: CharacterCreationStatus.loading));
     try {
+      // Логируем начало обработки
+      TalkerConfig.log('Начало обработки изображения с помощью AI');
+      
       // Получаем текущее фото из состояния
       final currentPhotoPath = state.character?.photoPath;
 
       if (currentPhotoPath == null) {
+        TalkerConfig.logWarning('Нет текущего фото для обработки');
         emit(
           state.copyWith(
             status: CharacterCreationStatus.failure,
@@ -93,6 +99,7 @@ class CharacterCreationBloc
       );
 
       if (currentImageBytes == null) {
+        TalkerConfig.logErrorCustom('Не удалось загрузить текущее изображение');
         emit(
           state.copyWith(
             status: CharacterCreationStatus.failure,
@@ -117,6 +124,8 @@ class CharacterCreationBloc
         // Сохраняем обработанное изображение с помощью ImageStorageService
         final savedImagePath = await imageStorageService.saveImage(imageBytes);
 
+        TalkerConfig.log('Изображение успешно обработано и сохранено');
+        
         emit(
           state.copyWith(
             status: CharacterCreationStatus.success,
@@ -124,6 +133,7 @@ class CharacterCreationBloc
           ),
         );
       } else {
+        TalkerConfig.logErrorCustom('Не удалось обработать изображение с помощью AI');
         emit(
           state.copyWith(
             status: CharacterCreationStatus.failure,
@@ -131,8 +141,8 @@ class CharacterCreationBloc
           ),
         );
       }
-    } catch (e) {
-      print('Ошибка при обработке изображения с помощью AI: $e');
+    } catch (e, stackTrace) {
+      TalkerConfig.logError(e, stackTrace: stackTrace);
       emit(
         state.copyWith(
           status: CharacterCreationStatus.failure,
@@ -174,7 +184,7 @@ class CharacterCreationBloc
     Emitter<CharacterCreationState> emit,
   ) async {
     emit(state.copyWith(status: CharacterCreationStatus.loading));
-    print('onPhotoTaken');
+    TalkerConfig.log('Попытка сделать фотографию');
     try {
       final XFile? photo = await cameraService.takePicture();
       if (photo != null) {
@@ -182,6 +192,8 @@ class CharacterCreationBloc
         final imageBytes = await photo.readAsBytes();
         final savedImagePath = await imageStorageService.saveImage(imageBytes);
 
+        TalkerConfig.log('Фотография успешно сделана и сохранена');
+        
         emit(
           state.copyWith(
             status: CharacterCreationStatus.success,
@@ -189,9 +201,11 @@ class CharacterCreationBloc
           ),
         );
       } else {
+        TalkerConfig.logWarning('Фотография не была сделана');
         emit(state.copyWith(status: CharacterCreationStatus.initial));
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      TalkerConfig.logError(e, stackTrace: stackTrace);
       emit(
         state.copyWith(
           status: CharacterCreationStatus.failure,
@@ -206,19 +220,22 @@ class CharacterCreationBloc
     Emitter<CharacterCreationState> emit,
   ) async {
     emit(state.copyWith(status: CharacterCreationStatus.loading));
+    TalkerConfig.log('Попытка выбрать фотографию из галереи');
     try {
       final file = File(event.photoPath);
       final imageBytes = await file.readAsBytes();
       final savedImagePath = await imageStorageService.saveImage(imageBytes);
 
+      TalkerConfig.log('Фотография успешно выбрана и сохранена');
+      
       emit(
         state.copyWith(
           status: CharacterCreationStatus.success,
           character: state.character!.copyWith(photoPath: savedImagePath),
         ),
       );
-    } catch (e) {
-      print('error $e');
+    } catch (e, stackTrace) {
+      TalkerConfig.logError(e, stackTrace: stackTrace);
       emit(
         state.copyWith(
           status: CharacterCreationStatus.failure,
